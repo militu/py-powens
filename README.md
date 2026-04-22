@@ -60,10 +60,21 @@ async def main() -> None:
         base_url="https://demo.biapi.pro/2.0",
         access_token="<USER_TOKEN>",
     ) as client:
-        async for account in client.accounts.list_all():
+        # Iterate accounts lazily (offset pagination under the hood)
+        async for account in client.accounts.list():
             print(account.id, account.name, account.balance)
 
 asyncio.run(main())
+```
+
+Prefer the envelope (with aggregated `balances` per currency) in a single
+call? Use `list_all()`:
+
+```python
+envelope = await client.accounts.list_all()
+for account in envelope.accounts:
+    print(account.id, account.name, account.balance)
+print("EUR total:", envelope.balances and envelope.balances.get("EUR"))
 ```
 
 ## Quickstart
