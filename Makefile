@@ -98,7 +98,7 @@ coverage: ## Tests with HTML coverage
 # ============================================================================
 
 audit: ## pip-audit on runtime deps
-	uv export --no-dev --no-hashes --format requirements-txt > requirements.txt
+	uv export --no-dev --no-emit-project --no-hashes --format requirements-txt > requirements.txt
 	uv tool run pip-audit --strict -r requirements.txt
 	rm -f requirements.txt
 

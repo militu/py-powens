@@ -91,7 +91,7 @@ jobs:
         run: uv python install 3.13
 
       - name: Export runtime dependencies
-        run: uv export --no-dev --no-hashes --format requirements-txt > requirements.txt
+        run: uv export --no-dev --no-emit-project --no-hashes --format requirements-txt > requirements.txt
 
       - name: Run pip-audit (runtime deps)
         run: uv tool run pip-audit --strict -r requirements.txt
