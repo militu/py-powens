@@ -1,0 +1,6 @@
+[tools]
+python = "3.13"
+uv = "0.8.11"
+
+[env]
+_.python.venv = { path = ".venv", create = false }
