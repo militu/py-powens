@@ -53,3 +53,10 @@ htmlcov/
 
 # Notebooks (exploration only, not part of the SDK)
 notebooks/
+
+# Secrets — belt and suspenders
+.env
+.env.*
+!.env.example
+*.pem
+*.key

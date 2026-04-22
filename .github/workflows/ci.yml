@@ -22,10 +22,10 @@ jobs:
         python-version: ["3.13"]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v8
         with:
           enable-cache: true
           cache-dependency-glob: "uv.lock"
@@ -47,3 +47,54 @@ jobs:
 
       - name: Run tests
         run: uv run pytest -q
+
+  build:
+    name: build sdist + wheel
+    runs-on: ubuntu-latest
+    needs: [quality]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8
+        with:
+          enable-cache: true
+
+      - name: Build distributions
+        run: uv build
+
+      - name: Check distributions
+        run: uv tool run twine check dist/*
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
+
+  security:
+    name: pip-audit + bandit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python 3.13
+        run: uv python install 3.13
+
+      - name: Export runtime dependencies
+        run: uv export --no-dev --no-hashes --format requirements-txt > requirements.txt
+
+      - name: Run pip-audit (runtime deps)
+        run: uv tool run pip-audit --strict -r requirements.txt
+
+      - name: Run bandit
+        run: uv tool run bandit -r src/powens -ll

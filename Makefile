@@ -1,7 +1,8 @@
 .PHONY: help install dev lint fmt lint-fix typecheck check test coverage \
-	pre-commit pre-commit-install \
+	audit bandit security \
+	pre-commit pre-commit-install pre-commit-run \
 	notebook \
-	build publish clean
+	build publish clean release-check
 
 .DEFAULT_GOAL := help
 
@@ -28,9 +29,15 @@ help: ## Show help
 	@echo "  make test              - Run the full test suite"
 	@echo "  make coverage          - Tests with HTML coverage"
 	@echo ""
+	@echo "🛡️  Security:"
+	@echo "  make audit             - pip-audit on runtime deps"
+	@echo "  make bandit            - bandit SAST scan"
+	@echo "  make security          - audit + bandit"
+	@echo ""
 	@echo "🔒 Pre-commit:"
 	@echo "  make pre-commit        - fmt + lint + typecheck + tests"
-	@echo "  make pre-commit-install - Install git pre-commit hook"
+	@echo "  make pre-commit-install - Install pre-commit framework hooks"
+	@echo "  make pre-commit-run    - Run pre-commit on all files"
 	@echo ""
 	@echo "📓 Notebook:"
 	@echo "  make notebook          - Launch Jupyter Lab in notebooks/"
@@ -38,6 +45,7 @@ help: ## Show help
 	@echo "📦 Release:"
 	@echo "  make clean             - Remove build artifacts"
 	@echo "  make build             - Build wheel + sdist"
+	@echo "  make release-check     - check + audit + build + twine check"
 	@echo "  make publish           - Publish to PyPI (requires token)"
 	@echo ""
 
@@ -86,6 +94,20 @@ coverage: ## Tests with HTML coverage
 	@echo "✅ Coverage report: htmlcov/index.html"
 
 # ============================================================================
+# Security
+# ============================================================================
+
+audit: ## pip-audit on runtime deps
+	uv export --no-dev --no-hashes --format requirements-txt > requirements.txt
+	uv tool run pip-audit --strict -r requirements.txt
+	rm -f requirements.txt
+
+bandit: ## bandit SAST scan
+	uv tool run bandit -r src/powens -ll
+
+security: audit bandit ## audit + bandit
+
+# ============================================================================
 # Pre-commit
 # ============================================================================
 
@@ -95,14 +117,12 @@ pre-commit: ## Fast pre-commit quality gate
 	@$(MAKE) typecheck
 	@$(MAKE) test
 
-pre-commit-install: ## Install git pre-commit hook
-	@if [ ! -f .git/hooks/pre-commit ]; then \
-		printf '#!/bin/sh\nmake pre-commit\n' > .git/hooks/pre-commit; \
-		chmod +x .git/hooks/pre-commit; \
-		echo "✅ Pre-commit hook installed at .git/hooks/pre-commit"; \
-	else \
-		echo "⚠️  .git/hooks/pre-commit already exists — remove it manually to reinstall."; \
-	fi
+pre-commit-install: ## Install pre-commit framework hooks
+	uv tool run pre-commit install
+	@echo "✅ Pre-commit hooks installed. Run 'make check' before push for mypy + tests."
+
+pre-commit-run: ## Run pre-commit hooks on all files
+	uv tool run pre-commit run --all-files
 
 # ============================================================================
 # Notebook
@@ -120,6 +140,9 @@ clean: ## Remove build artifacts
 
 build: clean ## Build wheel + sdist
 	uv build
+
+release-check: check security build ## Pre-release sanity check (check + security + build + twine)
+	uv tool run twine check dist/*
 
 publish: build ## Publish to PyPI
 	uv publish
