@@ -55,6 +55,7 @@ Requires **Python 3.13+**. Runtime dependencies: `httpx` and `pydantic` (v2).
 import asyncio
 from powens import PowensClient
 
+
 async def main() -> None:
     async with PowensClient(
         base_url="https://demo.biapi.pro/2.0",
@@ -63,6 +64,7 @@ async def main() -> None:
         # Iterate accounts lazily (offset pagination under the hood)
         async for account in client.accounts.list():
             print(account.id, account.name, account.balance)
+
 
 asyncio.run(main())
 ```
@@ -83,6 +85,7 @@ print("EUR total:", envelope.balances and envelope.balances.get("EUR"))
 import asyncio
 from powens import PowensClient
 
+
 async def main() -> None:
     async with PowensClient(
         base_url="https://your-domain.biapi.pro/2.0",
@@ -95,6 +98,7 @@ async def main() -> None:
         # Cursor-paginated listing (transactions)
         async for tx in client.transactions.list(limit=500):
             print(tx.id, tx.value, tx.wording)
+
 
 asyncio.run(main())
 ```
@@ -113,12 +117,16 @@ code = await c.auth.generate_code(type_="singleAccess")
 
 # Exchange a code for a permanent token
 permanent = await c.auth.exchange_code(
-    code=code.code, client_id="...", client_secret="...",
+    code=code.code,
+    client_id="...",
+    client_secret="...",
 )
 
 # Renew a token (for a known user)
 new = await c.auth.renew_token(
-    client_id="...", client_secret="...", id_user=42,
+    client_id="...",
+    client_secret="...",
+    id_user=42,
 )
 
 # Revoke the current permanent token
@@ -126,7 +134,8 @@ await c.auth.revoke_token()
 
 # Issue a service token (Pay product)
 svc = await c.auth.generate_service_token(
-    client_id="...", client_secret="...",
+    client_id="...",
+    client_secret="...",
     scope="payments:admin",
 )
 ```
@@ -188,7 +197,8 @@ async for tx in client.transactions.list(limit=1000):
 
 # Single-page call that exposes the envelope dates
 env = await client.transactions.list_page(
-    account_id=1, min_date=date(2024, 1, 1),
+    account_id=1,
+    min_date=date(2024, 1, 1),
 )
 print(env.first_date, env.last_date)
 ```
