@@ -33,6 +33,9 @@ jobs:
     permissions:
       contents: read
     env:
+      # mise downloads tools through the GitHub API: unauthenticated, the shared
+      # runner IPs hit the rate limit and the gate fails.
+      MISE_GITHUB_TOKEN: ${{ github.token }}
       CI_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
     steps:
       - name: Check out the repository (full history, for the secret scan)
@@ -58,7 +61,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mise x "actionlint@$ACTIONLINT_VERSION" "shellcheck@$SHELLCHECK_VERSION" -- actionlint
+          mise x "aqua:rhysd/actionlint@$ACTIONLINT_VERSION" "shellcheck@$SHELLCHECK_VERSION" -- actionlint
           mise x "zizmor@$ZIZMOR_VERSION" -- zizmor --format github --min-severity medium .github/workflows
 
       - name: Scan for secrets (gitleaks)
