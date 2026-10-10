@@ -1,4 +1,4 @@
-.PHONY: help install dev lint fmt lint-fix typecheck check test coverage \
+.PHONY: help install dev lint fmt lint-fix typecheck check test coverage ci \
 	audit bandit security \
 	pre-commit pre-commit-install pre-commit-run \
 	notebook \
@@ -143,6 +143,8 @@ build: clean ## Build wheel + sdist
 
 release-check: check security build ## Pre-release sanity check (check + security + build + twine)
 	uv tool run twine check dist/*
+
+ci: dev release-check ## What CI runs: install from the lockfile, then every gate and the build
 
 publish: build ## Publish to PyPI
 	uv publish

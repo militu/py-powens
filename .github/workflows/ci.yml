@@ -1,100 +1,75 @@
 name: CI
 
+# Public repository: it cannot call the private militu/ci, so it runs the same
+# gate inline. One job: workflow lint, secret scan, tools from mise.toml, `make ci`.
 on:
+  pull_request:
   push:
     branches: [main]
-  pull_request:
+  workflow_dispatch:
 
+permissions: {}
+
+# A newer push to the same pull request replaces its run; runs on main all finish.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-permissions:
-  contents: read
+env:
+  # renovate: datasource=github-releases depName=rhysd/actionlint
+  ACTIONLINT_VERSION: "1.7.12"
+  # renovate: datasource=github-releases depName=zizmorcore/zizmor
+  ZIZMOR_VERSION: "1.30.1"
+  # renovate: datasource=github-releases depName=gitleaks/gitleaks
+  GITLEAKS_VERSION: "8.30.1"
+  # renovate: datasource=github-releases depName=koalaman/shellcheck
+  SHELLCHECK_VERSION: "0.11.0"
 
 jobs:
-  quality:
-    name: lint + typecheck + tests (py${{ matrix.python-version }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.13"]
+  gate:
+    name: Gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      CI_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
+      - name: Check out the repository (full history, for the secret scan)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          enable-cache: true
-          cache-dependency-glob: "uv.lock"
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Set up Python ${{ matrix.python-version }}
-        run: uv python install ${{ matrix.python-version }}
-
-      - name: Install dependencies (lockfile)
-        run: uv sync --frozen
-
-      - name: Ruff lint
-        run: uv run ruff check --output-format=github .
-
-      - name: Ruff format (check)
-        run: uv run ruff format --check .
-
-      - name: Type check (mypy --strict)
-        run: uv run mypy .
-
-      - name: Run tests
-        run: uv run pytest -q
-
-  build:
-    name: build sdist + wheel
-    runs-on: ubuntu-latest
-    needs: [quality]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
+      - name: Install the tools of mise.toml
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
-          enable-cache: true
+          version: 2026.10.3
+          cache: true
 
-      - name: Build distributions
-        run: uv build
-
-      - name: Check distributions
-        run: uv tool run twine check dist/*
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v5
+      - name: Restore the package downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          name: dist
-          path: dist/
-          retention-days: 7
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+          restore-keys: uv-${{ runner.os }}-
 
-  security:
-    name: pip-audit + bandit
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - name: Lint the workflows (actionlint, zizmor)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mise x "actionlint@$ACTIONLINT_VERSION" "shellcheck@$SHELLCHECK_VERSION" -- actionlint
+          mise x "zizmor@$ZIZMOR_VERSION" -- zizmor --format github --min-severity medium .github/workflows
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-          cache-dependency-glob: "uv.lock"
+      - name: Scan for secrets (gitleaks)
+        run: |
+          range=()
+          if [ -n "$CI_BASE" ] && [ "${CI_BASE#0000000}" = "$CI_BASE" ]; then range=(--log-opts="$CI_BASE..HEAD"); fi
+          mise x "gitleaks@$GITLEAKS_VERSION" -- gitleaks git --redact --no-banner "${range[@]}" .
 
-      - name: Set up Python 3.13
-        run: uv python install 3.13
+      - name: make ci
+        run: make ci
 
-      - name: Export runtime dependencies
-        run: uv export --no-dev --no-emit-project --no-hashes --format requirements-txt > requirements.txt
-
-      - name: Run pip-audit (runtime deps)
-        run: uv tool run pip-audit --strict -r requirements.txt
-
-      - name: Run bandit
-        run: uv tool run bandit -r src/powens -ll
+      - name: Keep only what is worth caching
+        if: ${{ always() }}
+        run: uv cache prune --ci
