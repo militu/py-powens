@@ -2,7 +2,9 @@
 	audit bandit security \
 	pre-commit pre-commit-install pre-commit-run \
 	notebook \
-	build publish clean release-check
+	build publish clean release-check compatibility-check
+
+-include local.mk
 
 .DEFAULT_GOAL := help
 
@@ -54,43 +56,43 @@ help: ## Show help
 # ============================================================================
 
 install: ## Install production dependencies
-	uv sync --frozen --no-dev
+	uv sync --locked --no-dev
 
 dev: ## Install all dev dependencies
-	uv sync --frozen
+	uv sync --locked
 
 # ============================================================================
 # Code Quality
 # ============================================================================
 
 lint: ## Ruff check
-	uv run ruff check .
+	uv run --frozen ruff check .
 
 fmt: ## Ruff format + fix imports
-	uv run ruff check --select I --fix .
-	uv run ruff format .
+	uv run --frozen ruff check --select I --fix .
+	uv run --frozen ruff format .
 
 lint-fix: ## Ruff auto-fix
-	uv run ruff check --fix .
+	uv run --frozen ruff check --fix .
 
 typecheck: ## mypy strict
-	uv run mypy .
+	uv run --frozen mypy .
 
 check: ## Full quality gate
-	uv run ruff check .
-	uv run ruff format --check .
-	uv run mypy .
-	uv run pytest -q
+	uv run --frozen ruff check .
+	uv run --frozen ruff format --check .
+	uv run --frozen mypy .
+	uv run --frozen pytest -q
 
 # ============================================================================
 # Tests
 # ============================================================================
 
 test: ## Run tests
-	uv run pytest
+	uv run --frozen pytest
 
 coverage: ## Tests with HTML coverage
-	uv run pytest --cov=powens --cov-report=html --cov-report=term
+	uv run --frozen pytest --cov=powens --cov-report=html --cov-report=term
 	@echo "✅ Coverage report: htmlcov/index.html"
 
 # ============================================================================
@@ -98,12 +100,12 @@ coverage: ## Tests with HTML coverage
 # ============================================================================
 
 audit: ## pip-audit on runtime deps
-	uv export --no-dev --no-emit-project --no-hashes --format requirements-txt > requirements.txt
-	uv tool run pip-audit --strict -r requirements.txt
+	uv export --locked --no-dev --no-emit-project --no-hashes --format requirements-txt > requirements.txt
+	uv run --frozen pip-audit --strict -r requirements.txt
 	rm -f requirements.txt
 
 bandit: ## bandit SAST scan
-	uv tool run bandit -r src/powens -ll
+	uv run --frozen bandit -r src/powens -ll
 
 security: audit bandit ## audit + bandit
 
@@ -129,7 +131,7 @@ pre-commit-run: ## Run pre-commit hooks on all files
 # ============================================================================
 
 notebook: ## Launch Jupyter Lab in notebooks/
-	uv run --group notebooks jupyter lab --notebook-dir=notebooks
+	uv run --frozen --group notebooks jupyter lab --notebook-dir=notebooks
 
 # ============================================================================
 # Release
@@ -142,9 +144,13 @@ build: clean ## Build wheel + sdist
 	uv build
 
 release-check: check security build ## Pre-release sanity check (check + security + build + twine)
-	uv tool run twine check dist/*
+	uv run --frozen twine check dist/*
 
-ci: dev release-check ## What CI runs: install from the lockfile, then every gate and the build
+compatibility-check: ## Tests on the declared Python minimum and imports of the installed wheel
+	python scripts/ci-compatibility.py
+
+ci: dev release-check ## What CI runs: every gate, build and declared Python compatibility
+	$(MAKE) --no-print-directory compatibility-check
 
 publish: build ## Publish to PyPI
 	uv publish

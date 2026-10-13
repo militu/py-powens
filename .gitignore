@@ -60,3 +60,6 @@ notebooks/
 !.env.example
 *.pem
 *.key
+
+# Machine-specific environment overrides
+local.mk
