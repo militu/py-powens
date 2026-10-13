@@ -2,6 +2,7 @@ name: CI
 
 # Public repository: it cannot call the private militu/ci, so it runs the same
 # gate inline. One job: workflow lint, secret scan, tools from mise.toml, `make ci`.
+# Aligned with militu/ci v2.0.0. Compare with its gate.yml at each militu/ci release.
 on:
   pull_request:
   push:

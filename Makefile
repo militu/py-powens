@@ -2,7 +2,7 @@
 	audit bandit security \
 	pre-commit pre-commit-install pre-commit-run \
 	notebook \
-	build publish clean release-check compatibility-check
+	build clean release-check compatibility-check
 
 -include local.mk
 
@@ -48,7 +48,8 @@ help: ## Show help
 	@echo "  make clean             - Remove build artifacts"
 	@echo "  make build             - Build wheel + sdist"
 	@echo "  make release-check     - check + audit + build + twine check"
-	@echo "  make publish           - Publish to PyPI (requires token)"
+	@echo "  make ci                - What CI runs: release-check + Python 3.13 and installed wheel"
+	@echo "  Publishing: a v* tag, through PyPI Trusted Publishing (release.yml); no token"
 	@echo ""
 
 # ============================================================================
@@ -151,6 +152,3 @@ compatibility-check: ## Tests on the declared Python minimum and imports of the 
 
 ci: dev release-check ## What CI runs: every gate, build and declared Python compatibility
 	$(MAKE) --no-print-directory compatibility-check
-
-publish: build ## Publish to PyPI
-	uv publish
