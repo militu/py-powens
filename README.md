@@ -257,11 +257,8 @@ observability / control plane.
 
 ```bash
 mise install
-uv sync
-uv run ruff check .
-uv run ruff format --check .
-uv run mypy .
-uv run pytest
+make ci     # what CI runs: locked install, lint, format, mypy, tests, audit, build, Python 3.13 compatibility
+make check  # the quality gates only, for fast iteration
 ```
 
 Tests use `respx` and do not need network access.
